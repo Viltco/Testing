@@ -1,0 +1,26 @@
+<odoo>
+
+    <record id="view_stock_picking_form_inh" model="ir.ui.view">
+        <field name="name">Stock Transfer</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//field[@name='origin']" position="after">
+                <field name="show_create_mo" invisible="1"/>
+            </xpath>
+
+            <xpath expr="//header/button[@name='button_validate']" position="after">
+                <button name="create_mo" type="object" string="Create MO" attrs="{'invisible': ['|', ('show_create_mo', '=', False), ('state', 'not in', ['confirmed', 'assigned'])]}"/>
+            </xpath>
+
+            <xpath expr="//div[hasclass('oe_button_box')]" position="inside">
+                <button type="object" name="action_view_mo" class="oe_stat_button" icon="fa-truck" attrs="{'invisible': [('mo_count', '=', 0)]}">
+                    <field name="mo_count" widget="statinfo" string="MRP"/>
+                </button>
+            </xpath>
+
+        </field>
+    </record>
+
+</odoo>
