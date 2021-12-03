@@ -1,0 +1,81 @@
+<odoo>
+    <data>
+        <!--    <record id="view_purchase_order_form_inh" model="ir.ui.view">-->
+        <!--      <field name="name">purchase.order.form.inh</field>-->
+        <!--      <field name="model">purchase.order</field>-->
+        <!--      <field name="inherit_id" ref="purchase.purchase_order_form"/>-->
+        <!--      <field name="arch" type="xml">-->
+
+        <!--        <xpath expr="//field[@name='origin']" position="after">-->
+        <!--          <field name="document_1"/>-->
+        <!--          <field name="document_2"/>-->
+        <!--          <field name="document_3"/>-->
+        <!--        </xpath>-->
+        <!--      </field>-->
+        <!--    </record>-->
+
+        <record id="view_stock_picking_form_inh" model="ir.ui.view">
+            <field name="name">stock.picking.form.inh</field>
+            <field name="model">stock.picking</field>
+            <field name="inherit_id" ref="stock.view_picking_form"/>
+            <field name="arch" type="xml">
+
+                <xpath expr="//field[@name='origin']" position="after">
+                    <field name="document_1"/>
+                    <field name="document_2"/>
+                    <field name="document_3"/>
+                    <field name="picking_type_id"/>
+                    <field name="is_receipt" invisible="1"/>
+                </xpath>
+
+                <xpath expr="//header" position="inside">
+                    <button string="Confirm" name="action_qc_confirm" type="object" states="confirmed" class="oe_highlight"/>
+                    <button string="Confirm" name="action_ready" type="object" states="qc_inspection" class="oe_highlight" groups="receipt_overall.group_quality_manager"/>
+                </xpath>
+
+                <xpath expr="//button[@name='button_validate']" position="attributes">
+                    <attribute name="attrs">{'invisible': [('state', '!=', 'assigned')]}</attribute>
+                </xpath>
+
+                <xpath expr="//button[@name='action_assign']" position="attributes">
+                    <attribute name="attrs">{'invisible': [('is_receipt', '=', True)]}</attribute>
+                </xpath>
+
+                 <xpath expr="//button[@name='open_quality_alert_picking']" position="attributes">
+                    <attribute name="attrs">{'invisible': [('state', '!=', 'qc_inspection')]}</attribute>
+                </xpath>
+
+                <xpath expr="//button[@name='button_quality_alert']" position="attributes">
+                    <attribute name="attrs">{'invisible': [('state', '!=', 'qc_inspection')]}</attribute>
+                </xpath>
+
+                <xpath expr="//button[@name='%(quality_control.quality_check_action_picking)d']" position="attributes">
+                    <attribute name="attrs">{'invisible': [('state', '!=', 'qc_inspection')]}</attribute>
+                </xpath>
+
+            </field>
+        </record>
+
+        <record id="view_stock_picking_form_inh_quality" model="ir.ui.view">
+            <field name="name">stock.picking.form.inh</field>
+            <field name="model">stock.picking</field>
+            <field name="inherit_id" ref="quality_control.stock_picking_view_form_inherit_quality"/>
+            <field name="arch" type="xml">
+
+                <xpath expr="//button[@name='button_quality_alert']" position="attributes">
+                    <attribute name="attrs">{'invisible': [('state', '!=', 'qc_inspection')]}</attribute>
+                </xpath>
+
+                <xpath expr="//button[@name='open_quality_alert_picking']" position="attributes">
+                    <attribute name="attrs">{'invisible': [('state', '!=', 'qc_inspection')]}</attribute>
+                </xpath>
+
+                <xpath expr="//button[@name='%(quality_control.quality_check_action_picking)d']" position="attributes">
+                    <attribute name="attrs">{'invisible': [('state', '!=', 'qc_inspection')]}</attribute>
+                </xpath>
+
+            </field>
+        </record>
+
+    </data>
+</odoo>
