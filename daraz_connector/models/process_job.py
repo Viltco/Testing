@@ -5,7 +5,6 @@ class ProcessJob(models.Model):
     _name = 'process.job'
     _order = 'id desc'
     _description = "Process Job"
-    _inherit = ['mail.thread', 'mail.activity.mixin', 'portal.mixin']
 
     name = fields.Char('Name', default=lambda self: self.env['ir.sequence'].next_by_code('process.job'))
     instance_id = fields.Many2one('daraz.connector', "Daraz Store")
@@ -14,7 +13,7 @@ class ProcessJob(models.Model):
     response = fields.Text("Response")
     process_type = fields.Selection(
         [('product', 'Product'), ('order', 'Order'), ('customer', 'Customer'),
-         ('category', 'Product Category'),('transaction','Transaction'), ('attribute', 'Product Attribute'), 
+         ('category', 'Product Category'), ('attribute', 'Product Attribute'), 
          ('attribute_val', 'Product Attribute Value'),('payment_gateway', 'Payment Gateway')], "Process Type")
     operation_type = fields.Selection(
         [('import', 'Import'), ('import_sync', 'Import/Sync'), ('export', 'Export'), ('update', 'Update')],

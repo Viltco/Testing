@@ -56,7 +56,7 @@ class ProductAttribute(models.Model):
     def import_attributes(self, instance, categoryId=False):
         res = self.doConnection('GetCategoryAttributes','GET', instance, categoryId)
         result = res.get('SuccessResponse', {}).get('Body', {})
-
+        print (result)
         if result:
             attribute = self.create_attribute(result, instance)
 
@@ -65,7 +65,7 @@ class ProductAttribute(models.Model):
     def import_attribute(self, instance, categoryId=False):
         res = self.doConnection('GetCategoryAttributes','GET', instance, categoryId)
         result = res.get('SuccessResponse', {}).get('Body', {})
-
+        print (result)
         if result:
             attribute = self.create_attribute(result, instance)
 
@@ -74,7 +74,7 @@ class ProductAttribute(models.Model):
     def create_attribute(self, records, parent=None):
         attribute_obj = self.env['product.attribute']
         for record in records:
-
+            print (record)
             name = record.get("name")
             attribute = attribute_obj.create({
                     "name": name, 

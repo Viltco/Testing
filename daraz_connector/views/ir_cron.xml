@@ -27,45 +27,6 @@
             <field name="code">model.auto_import_status_sale_order()</field>
         </record>
 
-        <record id="ir_cron_import_transaction" model="ir.cron">
-            <field name="name">Import Transaction</field>
-            <field eval="False" name="active"/>
-            <field name="user_id" ref="base.user_root"/>
-            <field name="interval_number">1</field>
-            <field name="interval_type">days</field>
-            <field name="numbercall">-1</field>
-            <field name="state">code</field>
-            <field name="doall">False</field>
-            <field eval="ref('model_transaction_detail')" name="model_id"/>
-            <field name="code">model.auto_import_transaction()</field>
-        </record>
-
-        <record id="ir_cron_set_so_transaction" model="ir.cron">
-            <field name="name">Set SO in Transaction</field>
-            <field eval="False" name="active"/>
-            <field name="user_id" ref="base.user_root"/>
-            <field name="interval_number">1</field>
-            <field name="interval_type">days</field>
-            <field name="numbercall">-1</field>
-            <field name="state">code</field>
-            <field name="doall">False</field>
-            <field eval="ref('model_transaction_detail')" name="model_id"/>
-            <field name="code">model.auto_set_so_transaction()</field>
-        </record>
-
-        <record id="ir_cron_cre_inv_transaction" model="ir.cron">
-            <field name="name">Create invoice from Transaction</field>
-            <field eval="False" name="active"/>
-            <field name="user_id" ref="base.user_root"/>
-            <field name="interval_number">1</field>
-            <field name="interval_type">days</field>
-            <field name="numbercall">-1</field>
-            <field name="state">code</field>
-            <field name="doall">False</field>
-            <field eval="ref('model_transaction_detail')" name="model_id"/>
-            <field name="code">model.auto_cre_inv_transaction()</field>
-        </record>
-
         <!-- <record id="ir_cron_update_product_stock" model="ir.cron">
             <field name="name">Update Daraz Stock</field>
             <field eval="False" name="active"/>

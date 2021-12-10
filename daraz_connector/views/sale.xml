@@ -14,8 +14,7 @@
                     <button name="action_ready_to_ship" string="Ready To Ship" type="object" attrs="{'invisible':[('state','!=','pending')]}"   class="btn-primary"/>
                 <!-- <button name="action_shipped" string="Set To Shipped" type="object"  class="btn-primary"/> -->
                     <button name="daraz_order_cancel" attrs="{'invisible':[('state','=','canceled')]}" type="object" string="Daraz Cancel"/>
-                    <button name="import_document_sale_order" attrs="{'invisible':[('order_status','!=','ready_to_ship')]}" type="object" string="Import Shipping Documents" />
-                    <button name="import_document_sale_order" attrs="{'invisible':[('order_status','!=','ready_to_ship')]}" type="object" string="Import Invoice Document" context="{'doc_type':'invoice'}"/>
+                    <button name="import_document_sale_order" attrs="{'invisible':[('order_status','!=','ready_to_ship')]}" type="object" string="Import Documents"/>
                     <button name="action_draft" states="cancel" type="object" string="Set to Quotation"/>
                     <field name="state" invisible="1"/>
                     <field name="order_status" widget="statusbar" statusbar_visible="pending,ready_to_ship,shipped,delivered,canceled" />

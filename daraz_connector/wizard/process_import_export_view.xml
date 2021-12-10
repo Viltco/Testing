@@ -18,8 +18,8 @@
                         <field name="is_import_attribute" />
                         <field name="is_import_product"/>
                         <field name="is_import_docs" />
-                      <field name="is_import_transaction" />
-            <!--               <field name="import_order_status" />
+                        <field name="is_import_transaction" />
+<!--                         <field name="import_order_status" />
  -->                    </group>
                     <footer>
                         

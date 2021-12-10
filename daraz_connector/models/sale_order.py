@@ -32,7 +32,7 @@ class SaleOrder(models.Model):
                                      ('return_shipped_by_customer','Return Shipped By Customer'), 
                                      ('return_rejected','Return Rejected'),
                                      ('processing','Processing'), 
-                                     ('failed', 'Failed'), ('physical', 'Physically Returned'), ('ask', 'Ask for claimed'),  ('claimed', 'Claimed'),  ('received', 'Claimed Received')
+                                     ('failed', 'Failed')
                                     ],string="Daraz Order Status", track_visibility='onchange', copy=False)
     customer_name = fields.Char("Customer Name")
     doc_imported = fields.Boolean('Done with Document Import?')
@@ -59,53 +59,15 @@ class SaleOrder(models.Model):
             instance = self.instance_id
         if not job:
             job = self.env['process.job'].create({'instance_id': self.instance_id.id, 'process_type': 'order', 'operation_type': 'export', 'message': 'Process for export Order status'})
-        
-        doc_type = 'shippingLabel'
-        type_doc = self._context.get('doc_type')
-        if type_doc:
-            doc_type = type_doc
 
         OrderItemIds = self.order_line.mapped('item_id')
-        res = self.connect_with_store('GetDocument', 'GET', instance_id=instance, extra_parameters={'OrderItemIds': json.dumps(OrderItemIds), 'DocumentType' : doc_type})
-        result = res and res.get('SuccessResponse', {}).get('Body', {}) or {}
-        print(result)
+        res = self.connect_with_store('GetDocument', 'GET', instance_id=instance, extra_parameters={'OrderItemIds': json.dumps(OrderItemIds), 'DocumentType' : 'shippingLabel'})
+        result = res.get('SuccessResponse', {}).get('Body', {})
         if job:
             job.response = res
         if result:
             self.doc_imported = True
             val = result.get('Document')
-            doc_type = val.get('DocumentType')
-            mime_type = val.get('MimeType','')
-            file = val.get('File')
-            file_name = "Document_" + time.strftime("%Y_%m_%d_%H%M%S") + '.html'
-            attachment = self.env['ir.attachment'].create({
-                                               'name': file_name,
-                                               'datas': file,
-                                               'res_model': 'sale.order', 
-                                               'res_id' : self.id,
-                                              # 'type': 'binary'
-                                             })
-
-            self.message_post(body=_("<b>Document Downloaded</b>"), attachment_ids=attachment.ids)
-        else:
-            if job:
-                job.env['process.job.line'].create({'job_id': job.id, 'message': "Empty Response"})
-
-        return True
-
-    def get_failure_reason(self):
-        self.ensure_one()
-        if not instance:
-            instance = self.instance_id
-        job = self.env['process.job'].create({'instance_id': self.instance_id.id, 'process_type': 'order', 'operation_type': 'export', 'message': 'Process for export Order status'})
-        
-        # OrderItemIds = self.order_line.mapped('item_id')
-        res = self.connect_with_store('GetFailureReasons', 'GET', instance_id=instance) #, extra_parameters={'OrderItemIds': json.dumps(OrderItemIds)})
-        result = res and res.get('SuccessResponse', {}).get('Body', {}) or {}
-        if job:
-            job.response = res
-        if result:
-            vals = result.get('Reasons')
             doc_type = val.get('DocumentType')
             mime_type = val.get('MimeType','')
             file = val.get('File')
@@ -131,12 +93,12 @@ class SaleOrder(models.Model):
         for order in orders:
             if not job:
                 job = self.env['process.job'].create({'instance_id': self.instance_id.id, 'process_type': 'order', 'operation_type': 'export', 'message': 'Process for export Order status'})
-            order.import_document_sale_order(instance, job)
-            # if result:
-            if flag > 10:
-                flag = 0
-                self._cr.commit()
-            flag = flag + 1
+                order.import_document_sale_order(instance, job)
+                # if result:
+                if flag > 10:
+                    flag = 0
+                    self._cr.commit()
+                flag = flag + 1
         return True
 
     def action_create_purchase_order(self):
@@ -267,6 +229,7 @@ class SaleOrder(models.Model):
             job.request = concatenated
         try:
             response = request(method, url, headers=headers, params=parameters)
+            print(response.text)
             if job:
                 job.response = response.text
         except Exception as e:
@@ -281,10 +244,8 @@ class SaleOrder(models.Model):
             job = self.env['process.job'].create({'instance_id': self.instance_id.id, 'process_type': 'order', 'operation_type': 'export', 'message': 'Process for export Order status'})
         offset = 0
         res = self.connect_with_store('GetOrders', 'GET', instance_id=instance, extra_parameters={'Status':'pending'})
-        result = res and res.get('SuccessResponse', {}).get('Body', {}).get('Orders', []) or {}
-        total_count = res and res.get('SuccessResponse', {}).get('Head', {}).get('TotalCount', 0) or {}
-        print("pending order",total_count)
-        print("res", res)
+        result = res.get('SuccessResponse', {}).get('Body', {}).get('Orders', [])
+        total_count = res.get('SuccessResponse', {}).get('Head', {}).get('TotalCount', 0)
 
         flag = 0
         if job:
@@ -296,7 +257,7 @@ class SaleOrder(models.Model):
             status = val.get('Statuses', '')
             items_count = val.get('ItemsCount')
             res = self.connect_with_store('GetOrderItems', 'GET', instance_id=instance, extra_parameters={'OrderId': orderid})
-            if res and res.get('ErrorResponse', {}).get('Head', {}).get('ErrorCode', 0) == '429':
+            if res.get('ErrorResponse', {}).get('Head', {}).get('ErrorCode', 0) == '429':
                 time.sleep(60)
                 res = self.connect_with_store('GetOrderItems', 'GET', instance_id=instance,  extra_parameters={'OrderId': orderid})
             if val:
@@ -317,7 +278,7 @@ class SaleOrder(models.Model):
                         'instance_id': instance.id,
                     })
                 flag = flag + 1
-                self.create_order_line(res and res.get('SuccessResponse', {}).get('Body', {}) or {}, items_count, order, instance)
+                self.create_order_line(res.get('SuccessResponse', {}).get('Body', {}), items_count, order, instance)
 
         if result:
             # new_result += result
@@ -325,9 +286,8 @@ class SaleOrder(models.Model):
             flag = 0
             while(total_count == 100):
                 res = self.connect_with_store('GetOrders', 'GET', instance_id=instance, extra_parameters={'Offset': offset})
-                print("sale order",res)
-                child_result = res and res.get('SuccessResponse', {}).get('Body', {}).get('Orders', []) or {}
-                total_count = res and res.get('SuccessResponse', {}).get('Head', {}).get('TotalCount', 0) or {}
+                child_result = res.get('SuccessResponse', {}).get('Body', {}).get('Orders', [])
+                total_count = res.get('SuccessResponse', {}).get('Head', {}).get('TotalCount', 0)
                 for val in child_result:
                     orderid = val.get('OrderId')
                     if self.search([('instance_id', '=', instance.id), ('orderid', '=', orderid)]):
@@ -335,135 +295,7 @@ class SaleOrder(models.Model):
                     status = val.get('Statuses', '')
                     items_count = val.get('ItemsCount')
                     res = self.connect_with_store('GetOrderItems', 'GET', instance_id=instance, extra_parameters={'OrderId': orderid})
-                    if res and res.get('ErrorResponse', {}).get('Head', {}).get('ErrorCode', 0) == '429':
-                        time.sleep(120)
-                        res = self.connect_with_store('GetOrderItems', 'GET', instance_id=instance,  extra_parameters={'OrderId': orderid})
-                    if val:
-                        if flag > 10:
-                            flag = 0
-                            self._cr.commit()
-                        create_date = val.get('CreatedAt')
-                        update_date = val.get('UpdatedAt')
-                        first_name = val.get('CustomerFirstName', '')
-                        last_name = val.get('CustomerLastName', '')
-                        cust_name = "%s %s" % (first_name, last_name)
-                        order = self.create({
-                            'partner_id': instance.default_customer_id.id,
-                            'date_order': create_date,
-                            'orderid': orderid,
-                            'customer_name': cust_name,
-                            'order_status': status and status[0],
-                            'instance_id': instance.id,
-                        })
-                        flag = flag + 1
-                        self.create_order_line(res and res.get('SuccessResponse', {}).get('Body', {}) or {}, items_count, order,
-                                               instance)
-                if child_result:
-                    offset += 100
-
-                else:
-                    flag = 0
-                    if res and res.get('ErrorResponse', {}).get('Head', {}).get('ErrorCode', 0) == '429':
-                        time.sleep(60)
-                        res = self.connect_with_store('GetOrders', 'GET', instance_id=instance, extra_parameters={'Offset': offset})
-                        after_result = res and res.get('SuccessResponse', {}).get('Body', {}).get('Orders', []) or {}
-                        total_count = res and res.get('SuccessResponse', {}).get('Head', {}).get('TotalCount', 0) or {}
-                        for val in after_result:
-                            orderid = val.get('OrderId')
-                            if self.search([('instance_id', '=', instance.id), ('orderid', '=', orderid)]):
-                                continue
-                            status = val.get('Statuses', '')
-                            items_count = val.get('ItemsCount')
-                            res = self.connect_with_store('GetOrderItems', 'GET', instance_id=instance, extra_parameters={'OrderId': orderid})
-                            if res and res.get('ErrorResponse', {}).get('Head', {}).get('ErrorCode', 0) == '429':
-                                time.sleep(60)
-                                res = self.connect_with_store('GetOrderItems', 'GET', instance_id=instance, extra_parameters={'OrderId': orderid})
-
-                            if val:
-                                # if flag > 10:
-                                #     flag = 0
-
-                                create_date = val.get('CreatedAt')
-                                update_date = val.get('UpdatedAt')
-                                first_name = val.get('CustomerFirstName', '')
-                                last_name = val.get('CustomerLastName', '')
-                                cust_name = "%s %s" % (first_name, last_name)
-                                order = self.create({
-                                    'partner_id': instance.default_customer_id.id,
-                                    'date_order': create_date,
-                                    'orderid': orderid,
-                                    'customer_name': cust_name,
-                                    'order_status': status and status[0],
-                                    'instance_id': instance.id,
-                                })
-                                self.create_order_line(res and res.get('SuccessResponse', {}).get('Body', {})  or {}, items_count, order, instance)
-                                self._cr.commit()
-                    else:
-                        break
-
-        if result and job:
-            job.env['process.job.line'].create({'job_id': job.id, 'message': "Empty Response"})
-
-        return True
-
-    def import_orders(self, instance, job=False):
-        if not job:
-            job = self.env['process.job'].create({'instance_id': self.instance_id.id, 'process_type': 'order', 'operation_type': 'export', 'message': 'Process for export Order status'})
-        offset = 0
-        
-        res = self.connect_with_store('GetOrders', 'GET', instance_id=instance, extra_parameters={'SortBy':'created_at', 'SortDirection': 'DESC'})
-        result = res and res.get('SuccessResponse', {}).get('Body', {}).get('Orders', []) or {}
-        total_count = res and res.get('SuccessResponse', {}).get('Head', {}).get('TotalCount', 0) or {}
-
-        flag = 0
-        if job:
-            job.response = res
-        for val in result:
-            orderid = val.get('OrderId')
-            if self.search([('instance_id', '=', instance.id), ('orderid', '=', orderid)]):
-                continue
-            status = val.get('Statuses', '')
-            items_count = val.get('ItemsCount')
-            res = self.connect_with_store('GetOrderItems', 'GET', instance_id=instance, extra_parameters={'OrderId': orderid})
-            if res and res.get('ErrorResponse', {}).get('Head', {}).get('ErrorCode', 0) == '429':
-                time.sleep(60)
-                res = self.connect_with_store('GetOrderItems', 'GET', instance_id=instance,  extra_parameters={'OrderId': orderid})
-            if val:
-                if flag > 10:
-                    flag = 0
-                    self._cr.commit()
-                create_date = val.get('CreatedAt')
-                update_date = val.get('UpdatedAt')
-                first_name = val.get('CustomerFirstName', '')
-                last_name = val.get('CustomerLastName', '')
-                cust_name = "%s %s" % (first_name, last_name)
-                order = self.create({
-                        'partner_id': instance.default_customer_id.id,
-                        'date_order': create_date,
-                        'orderid': orderid,
-                        'customer_name': cust_name,
-                        'order_status': status and status[0],
-                        'instance_id': instance.id,
-                    })
-                flag = flag + 1
-                self.create_order_line(res and res.get('SuccessResponse', {}).get('Body', {})  or {}, items_count, order, instance)
-
-        if result:
-            # new_result += result
-            offset = 100
-            flag = 0
-            while(total_count == 100):
-                res = self.connect_with_store('GetOrders', 'GET', instance_id=instance, extra_parameters={'Offset': offset})
-                child_result = res and res.get('SuccessResponse', {}).get('Body', {}).get('Orders', []) or {}
-                total_count = res and res.get('SuccessResponse', {}).get('Head', {}).get('TotalCount', 0) or {}
-                for val in child_result:
-                    orderid = val.get('OrderId')
-                    if self.search([('instance_id', '=', instance.id), ('orderid', '=', orderid)]):
-                        continue
-                    status = val.get('Statuses', '')
-                    items_count = val.get('ItemsCount')
-                    res = self.connect_with_store('GetOrderItems', 'GET', instance_id=instance, extra_parameters={'OrderId': orderid})
-                    if res and res.get('ErrorResponse', {}).get('Head', {}).get('ErrorCode', 0) == '429':
+                    if res.get('ErrorResponse', {}).get('Head', {}).get('ErrorCode', 0) == '429':
                         print()
                         time.sleep(120)
                         res = self.connect_with_store('GetOrderItems', 'GET', instance_id=instance,  extra_parameters={'OrderId': orderid})
@@ -485,18 +317,18 @@ class SaleOrder(models.Model):
                             'instance_id': instance.id,
                         })
                         flag = flag + 1
-                        self.create_order_line(res and res.get('SuccessResponse', {}).get('Body', {})  or {}, items_count, order,
+                        self.create_order_line(res.get('SuccessResponse', {}).get('Body', {}), items_count, order,
                                                instance)
                 if child_result:
                     offset += 100
 
                 else:
                     flag = 0
-                    if res and res.get('ErrorResponse', {}).get('Head', {}).get('ErrorCode', 0) == '429':
+                    if res.get('ErrorResponse', {}).get('Head', {}).get('ErrorCode', 0) == '429':
                         time.sleep(60)
                         res = self.connect_with_store('GetOrders', 'GET', instance_id=instance, extra_parameters={'Offset': offset})
-                        after_result = res and res.get('SuccessResponse', {}).get('Body', {}).get('Orders', []) or {}
-                        total_count = res and res.get('SuccessResponse', {}).get('Head', {}).get('TotalCount', 0) or {}
+                        after_result = res.get('SuccessResponse', {}).get('Body', {}).get('Orders', [])
+                        total_count = res.get('SuccessResponse', {}).get('Head', {}).get('TotalCount', 0)
                         for val in after_result:
                             orderid = val.get('OrderId')
                             if self.search([('instance_id', '=', instance.id), ('orderid', '=', orderid)]):
@@ -504,7 +336,7 @@ class SaleOrder(models.Model):
                             status = val.get('Statuses', '')
                             items_count = val.get('ItemsCount')
                             res = self.connect_with_store('GetOrderItems', 'GET', instance_id=instance, extra_parameters={'OrderId': orderid})
-                            if res and res.get('ErrorResponse', {}).get('Head', {}).get('ErrorCode', 0) == '429':
+                            if res.get('ErrorResponse', {}).get('Head', {}).get('ErrorCode', 0) == '429':
                                 time.sleep(60)
                                 res = self.connect_with_store('GetOrderItems', 'GET', instance_id=instance, extra_parameters={'OrderId': orderid})
 
@@ -525,7 +357,136 @@ class SaleOrder(models.Model):
                                     'order_status': status and status[0],
                                     'instance_id': instance.id,
                                 })
-                                self.create_order_line(res and res.get('SuccessResponse', {}).get('Body', {})  or {}, items_count, order, instance)
+                                self.create_order_line(res.get('SuccessResponse', {}).get('Body', {}), items_count, order, instance)
+                                self._cr.commit()
+                    else:
+                        break
+
+        if result and job:
+            job.env['process.job.line'].create({'job_id': job.id, 'message': "Empty Response"})
+
+        return True
+
+    def import_orders(self, instance, job=False):
+        if not job:
+            job = self.env['process.job'].create({'instance_id': self.instance_id.id, 'process_type': 'order', 'operation_type': 'export', 'message': 'Process for export Order status'})
+        offset = 0
+        
+        res = self.connect_with_store('GetOrders', 'GET', instance_id=instance, extra_parameters={'SortBy':'created_at', 'SortDirection': 'DESC'})
+        result = res.get('SuccessResponse', {}).get('Body', {}).get('Orders', [])
+        total_count = res.get('SuccessResponse', {}).get('Head', {}).get('TotalCount', 0)
+
+        flag = 0
+        if job:
+            job.response = res
+        for val in result:
+            orderid = val.get('OrderId')
+            if self.search([('instance_id', '=', instance.id), ('orderid', '=', orderid)]):
+                continue
+            status = val.get('Statuses', '')
+            items_count = val.get('ItemsCount')
+            res = self.connect_with_store('GetOrderItems', 'GET', instance_id=instance, extra_parameters={'OrderId': orderid})
+            if res.get('ErrorResponse', {}).get('Head', {}).get('ErrorCode', 0) == '429':
+                time.sleep(60)
+                res = self.connect_with_store('GetOrderItems', 'GET', instance_id=instance,  extra_parameters={'OrderId': orderid})
+            if val:
+                if flag > 10:
+                    flag = 0
+                    self._cr.commit()
+                create_date = val.get('CreatedAt')
+                update_date = val.get('UpdatedAt')
+                first_name = val.get('CustomerFirstName', '')
+                last_name = val.get('CustomerLastName', '')
+                cust_name = "%s %s" % (first_name, last_name)
+                order = self.create({
+                        'partner_id': instance.default_customer_id.id,
+                        'date_order': create_date,
+                        'orderid': orderid,
+                        'customer_name': cust_name,
+                        'order_status': status and status[0],
+                        'instance_id': instance.id,
+                    })
+                flag = flag + 1
+                self.create_order_line(res.get('SuccessResponse', {}).get('Body', {}), items_count, order, instance)
+
+        if result:
+            # new_result += result
+            offset = 100
+            flag = 0
+            while(total_count == 100):
+                res = self.connect_with_store('GetOrders', 'GET', instance_id=instance, extra_parameters={'Offset': offset})
+                child_result = res.get('SuccessResponse', {}).get('Body', {}).get('Orders', [])
+                total_count = res.get('SuccessResponse', {}).get('Head', {}).get('TotalCount', 0)
+                for val in child_result:
+                    orderid = val.get('OrderId')
+                    if self.search([('instance_id', '=', instance.id), ('orderid', '=', orderid)]):
+                        continue
+                    status = val.get('Statuses', '')
+                    items_count = val.get('ItemsCount')
+                    res = self.connect_with_store('GetOrderItems', 'GET', instance_id=instance, extra_parameters={'OrderId': orderid})
+                    if res.get('ErrorResponse', {}).get('Head', {}).get('ErrorCode', 0) == '429':
+                        print()
+                        time.sleep(120)
+                        res = self.connect_with_store('GetOrderItems', 'GET', instance_id=instance,  extra_parameters={'OrderId': orderid})
+                    if val:
+                        if flag > 10:
+                            flag = 0
+                            self._cr.commit()
+                        create_date = val.get('CreatedAt')
+                        update_date = val.get('UpdatedAt')
+                        first_name = val.get('CustomerFirstName', '')
+                        last_name = val.get('CustomerLastName', '')
+                        cust_name = "%s %s" % (first_name, last_name)
+                        order = self.create({
+                            'partner_id': instance.default_customer_id.id,
+                            'date_order': create_date,
+                            'orderid': orderid,
+                            'customer_name': cust_name,
+                            'order_status': status and status[0],
+                            'instance_id': instance.id,
+                        })
+                        flag = flag + 1
+                        self.create_order_line(res.get('SuccessResponse', {}).get('Body', {}), items_count, order,
+                                               instance)
+                if child_result:
+                    offset += 100
+
+                else:
+                    flag = 0
+                    if res.get('ErrorResponse', {}).get('Head', {}).get('ErrorCode', 0) == '429':
+                        time.sleep(60)
+                        res = self.connect_with_store('GetOrders', 'GET', instance_id=instance, extra_parameters={'Offset': offset})
+                        after_result = res.get('SuccessResponse', {}).get('Body', {}).get('Orders', [])
+                        total_count = res.get('SuccessResponse', {}).get('Head', {}).get('TotalCount', 0)
+                        for val in after_result:
+                            orderid = val.get('OrderId')
+                            if self.search([('instance_id', '=', instance.id), ('orderid', '=', orderid)]):
+                                continue
+                            status = val.get('Statuses', '')
+                            items_count = val.get('ItemsCount')
+                            res = self.connect_with_store('GetOrderItems', 'GET', instance_id=instance, extra_parameters={'OrderId': orderid})
+                            if res.get('ErrorResponse', {}).get('Head', {}).get('ErrorCode', 0) == '429':
+                                time.sleep(60)
+                                res = self.connect_with_store('GetOrderItems', 'GET', instance_id=instance, extra_parameters={'OrderId': orderid})
+
+                            if val:
+                                # if flag > 10:
+                                #     flag = 0
+
+                                create_date = val.get('CreatedAt')
+                                update_date = val.get('UpdatedAt')
+                                first_name = val.get('CustomerFirstName', '')
+                                last_name = val.get('CustomerLastName', '')
+                                cust_name = "%s %s" % (first_name, last_name)
+                                order = self.create({
+                                    'partner_id': instance.default_customer_id.id,
+                                    'date_order': create_date,
+                                    'orderid': orderid,
+                                    'customer_name': cust_name,
+                                    'order_status': status and status[0],
+                                    'instance_id': instance.id,
+                                })
+                                self.create_order_line(res.get('SuccessResponse', {}).get('Body', {}), items_count, order, instance)
                                 self._cr.commit()
                     else:
                         break
@@ -557,14 +518,14 @@ class SaleOrder(models.Model):
         return product
 
     @api.model
-    def create_order_line(self, records ={}, qty=0.00, order=False, instance=False):
+    def create_order_line(self, records, qty=0.00, order=False, instance=False):
         for record in records.get('OrderItems', {}):
             item_id = record.get('OrderItemId')
             sku = record.get('Sku').replace(' ', '')
             name = record.get('Name', '')
             shop_sku = record.get('ShopSku')
             # res = self.connect_with_store('GetProducts', 'GET', instance_id=instance, extra_parameters={'search':sku})
-            # result = res and res.get('SuccessResponse', {}).get('Body', {}) or {}
+            # result = res.get('SuccessResponse', {}).get('Body', {})
             # result.get('Products')
             
             product = self.search_product(sku, instance)
@@ -658,7 +619,7 @@ class SaleOrder(models.Model):
                              # 'ShippingProvider': self.shipping_provider,
                              # 'TrackingNumber' : line.tracking_no or '',
                              },job=job)
-            marketplace_result = marketplace_res and marketplace_res.get('SuccessResponse', {}).get('Body', {}) or {}
+            marketplace_result = marketplace_res.get('SuccessResponse', {}).get('Body', {})
             market_orderitems = marketplace_result.get('OrderItems',{})
             for market_orderitem in market_orderitems:
                 if market_orderitem.get('OrderItemId'):
@@ -676,7 +637,7 @@ class SaleOrder(models.Model):
                          
                          }, job=job)
 
-            result = res and res.get('SuccessResponse', {}).get('Body', {}) or {}
+            result = res.get('SuccessResponse', {}).get('Body', {})
             orderitems = result.get('OrderItems',{})
             for orderitem in orderitems:
                 self.order_status = 'ready_to_ship'
@@ -739,15 +700,17 @@ class SaleOrder(models.Model):
             orders = self.env['sale.order'].search([('instance_id','=',instance.id)])
             for order in orders:               
                 res = self.connect_with_store('GetOrder', 'GET', instance_id=instance, extra_parameters={'OrderId':order.orderid}, job=job)
-                result = res and res.get('SuccessResponse', {}).get('Body', {}) or {}
+                result = res.get('SuccessResponse', {}).get('Body', {})
                 orderdata = result.get('Orders',[]) 
                 status = orderdata and orderdata[0].get('Statuses','')
                 if flag > 10:
                     flag = 0
                     self._cr.commit()
+                print(status and status[0])
                 if status:
 
-                    flag = flag + 1
+                    print(status and status[0])
+                    flag = flag + 1 
                     order.order_status = status and status[0]
             instance.so_import_next_execution = instance.so_import_cron_id.nextcall
         return True
@@ -798,7 +761,8 @@ class SaleOrder(models.Model):
                              'OrderItemId': OrderItemIds and OrderItemIds[0],
                              'ReasonId': ReasonId
                              }, job=job)
-                result = res and res.get('SuccessResponse', {}).get('Body', {}) or {}
+                result = res.get('SuccessResponse', {}).get('Body', {})
+                print(res,result)
                 if result:
                     order.order_status = 'canceled'
 

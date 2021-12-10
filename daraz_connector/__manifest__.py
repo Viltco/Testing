@@ -10,26 +10,24 @@
         Daraz Connector
     """,
 
-    'author': "Hassan Ali",
-    'website': "http://www.falconitsol.com",
+    'author': "Hunain AK",
+    'website': "http://www.telenoc.com",
 
     
     'category': 'Tools',
-    'version': '13.2',
+    'version': '13.6',
 
     'depends': ['sale_stock','purchase'],
 
     'data': [
-        #'security/ir.model.access.csv',
-        #'views/daraz_instance.xml',
-        #'views/sale.xml',
-        #'views/ir_cron.xml',
-        #'views/purchase.xml',
-        #'views/view_process_job.xml',
-        #'views/transaction_detail.xml',
-        #'wizard/process_import_export_view.xml',
-        #'wizard/cancel_reason.xml',
-#'security/group.xml',
+        'security/ir.model.access.csv',
+        'views/daraz_instance.xml',
+        'views/sale.xml',
+        'views/ir_cron.xml',
+        'views/purchase.xml',
+        'views/view_process_job.xml',
+        'wizard/process_import_export_view.xml',
+        'wizard/cancel_reason.xml',
     ],
     'installable': True,
     'application': True,

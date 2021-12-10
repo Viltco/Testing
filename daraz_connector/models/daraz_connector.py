@@ -20,7 +20,6 @@ _intervalTypes = {
 class DarazConnector(models.Model):
     _name = "daraz.connector"
     _description = "Daraz Connector"
-    _inherit = ['mail.thread', 'mail.activity.mixin', 'portal.mixin']
 
     name = fields.Char("Store Name", index=True, required=True)
     api_url = fields.Char("Api Url", required=True)
@@ -31,7 +30,6 @@ class DarazConnector(models.Model):
     state = fields.Selection([("draft", 'Draft'), ("connected", 'Connected')], default='draft')
     company_id = fields.Many2one('res.company', 'Company', required=True,
                                  default=lambda self: self.env.user.company_id.id)
-    fees_account_id = fields.Many2one('account.account', string='Fees Account')
     import_pending_orders = fields.Boolean(string='Import Only Pending Orders?')
     pending_so_import_cron_id = fields.Many2one('ir.cron')
     pending_so_import_interval_number = fields.Integer('Import Pending Order Interval Number', help="Repeat every x.", default=10)
@@ -51,37 +49,6 @@ class DarazConnector(models.Model):
                                                'Import Sale Order Interval Unit')
     so_import_next_execution = fields.Datetime('Next Execution', help='Next execution time')
     so_import_user_id = fields.Many2one('res.users', string="User", help='User', default=lambda self: self.env.user)
-
-    trans_auto_import = fields.Boolean('Auto Import Transaction?')
-    trans_import_cron_id = fields.Many2one('ir.cron')
-    trans_import_interval_number = fields.Integer('Import Transaction Interval Number', help="Repeat every x.", default=10)
-    trans_import_interval_type = fields.Selection([('minutes', 'Minutes'),
-                                                ('hours', 'Hours'), ('work_days', 'Work Days'), ('days', 'Days'),
-                                                ('weeks', 'Weeks'), ('months', 'Months')],
-                                               'Import Transaction Interval Unit')
-    trans_import_next_execution = fields.Datetime('Next Execution', help='Next execution time')
-    trans_import_user_id = fields.Many2one('res.users', string="User", help='Cron User', default=lambda self: self.env.user)
-
-    trans_set_so = fields.Boolean('Auto Set So in Transaction?')
-    trans_set_so_cron_id = fields.Many2one('ir.cron')
-    trans_set_so_interval_number = fields.Integer('Set SO Transaction Interval Number', help="Repeat every x.", default=10)
-    trans_set_so_interval_type = fields.Selection([('minutes', 'Minutes'),
-                                                ('hours', 'Hours'), ('work_days', 'Work Days'), ('days', 'Days'),
-                                                ('weeks', 'Weeks'), ('months', 'Months')],
-                                               'Import Transaction Interval Unit')
-    trans_set_so_next_execution = fields.Datetime('Next Execution', help='Set So Next execution time')
-    trans_set_so_user_id = fields.Many2one('res.users', string="User", help='Set So Transaction Cron User', default=lambda self: self.env.user)
-
-    trans_create_invoice = fields.Boolean('Auto Create Invoice from Transaction?')
-    trans_create_invoice_cron_id = fields.Many2one('ir.cron')
-    trans_create_invoice_interval_number = fields.Integer('inv Transaction Interval Number', help="Repeat every x.", default=10)
-    trans_create_invoice_interval_type = fields.Selection([('minutes', 'Minutes'),
-                                                ('hours', 'Hours'), ('work_days', 'Work Days'), ('days', 'Days'),
-                                                ('weeks', 'Weeks'), ('months', 'Months')],
-                                               'invoice Transaction Interval Unit')
-    trans_create_invoice_next_execution = fields.Datetime('invoice create Next Execution', help='Next execution time')
-    trans_create_invoice_user_id = fields.Many2one('res.users', string="User", help='invoice create  Cron User', default=lambda self: self.env.user)
-
 
     so_auto_import_status = fields.Boolean('Auto Import Status Sale Order?')
     so_import_status_cron_id = fields.Many2one('ir.cron')
@@ -144,13 +111,6 @@ class DarazConnector(models.Model):
         if 'so_auto_import_status' in vals:
             res.setup_import_status_so_cron()
 
-        if 'trans_auto_import' in vals:
-            res.setup_import_trans_cron()
-        if 'trans_set_so' in vals:
-            res.setup_so_in_trnsd_cron()
-        if 'trans_create_invoice' in vals:
-            res.setup_crea_inv_trnsd_cron()
-
         if 'pro_auto_import' in vals:
             res.setup_import_prod_cron()
         if 'categ_auto_import' in vals:
@@ -167,14 +127,6 @@ class DarazConnector(models.Model):
                 instance.setup_import_so_cron()
             if 'so_auto_update' in vals:
                 instance.setup_update_so_cron()
-
-            if 'trans_auto_import' in vals:
-                instance.setup_import_trans_cron()
-            if 'trans_set_so' in vals:
-                instance.setup_so_in_trnsd_cron()
-            if 'trans_create_invoice' in vals:
-                instance.setup_crea_inv_trnsd_cron()
-
             if 'pro_auto_import' in vals:
                 instance.setup_import_prod_cron()
             if 'categ_auto_import' in vals:
@@ -185,153 +137,6 @@ class DarazConnector(models.Model):
                 instance.setup_import_status_so_cron()
             
         return res
-
-    def setup_import_trans_cron(self):
-        if self.trans_auto_import:
-            try:
-                cron_available = self.env.ref('daraz_connector.ir_cron_import_transaction_%d' % (self.id),
-                                              raise_if_not_found=False)
-            except:
-                cron_available = False
-            nextcall = datetime.now()
-            nextcall += _intervalTypes[self.trans_import_interval_type](self.trans_import_interval_number)
-            vals = {
-                'active': True,
-                'interval_number': self.trans_import_interval_number,
-                'interval_type': self.trans_import_interval_type,
-                'nextcall': nextcall.strftime('%Y-%m-%d %H:%M:%S'),
-                'code': "model.auto_import_transaction(ctx={'instance_id':%d})" % (self.id),
-                'user_id': self.trans_import_user_id and self.trans_import_user_id.id}
-
-            if cron_available:
-                vals.update({'name': cron_available.name})
-                cron_available.write(vals)
-            else:
-                try:
-                    import_trans_cron = self.env.ref('daraz_connector.ir_cron_import_status_orders')
-                except:
-                    import_trans_cron = False
-                if not import_trans_cron:
-                    raise Warning(
-                        'Please upgrade Daraz Connector module.')
-
-                name = self.name + ' : ' + import_trans_cron.name
-                vals.update({'name': name})
-                new_cron = import_trans_cron.copy(default=vals)
-                import_trans_cron = self.env['ir.model.data'].create({'module': 'daraz_connector',
-                                                                   'name': 'ir_cron_import_transaction_%d' % (self.id),
-                                                                   'model': 'ir.cron',
-                                                                   'res_id': new_cron.id,
-                                                                   'noupdate': True
-                                                                   })
-                import_trans_cron and self.update({'trans_import_cron_id': new_cron.id})
-        else:
-            try:
-                cron_available = self.env.ref('daraz_connector.ir_cron_import_transaction_%d' % (self.id))
-            except:
-                cron_available = False
-
-            if cron_available:
-                cron_available.write({'active': False})
-        return True
-
-    def setup_so_in_trnsd_cron(self):
-        if self.trans_set_so:
-            try:
-                cron_available = self.env.ref('daraz_connector.ir_cron_import_transaction_%d' % (self.id),
-                                              raise_if_not_found=False)
-            except:
-                cron_available = False
-            nextcall = datetime.now()
-            nextcall += _intervalTypes[self.trans_set_so_interval_type](self.trans_set_so_interval_number)
-            vals = {
-                'active': True,
-                'interval_number': self.trans_set_so_interval_number,
-                'interval_type': self.trans_set_so_interval_type,
-                'nextcall': nextcall.strftime('%Y-%m-%d %H:%M:%S'),
-                'code': "model.auto_set_so_transaction(ctx={'instance_id':%d})" % (self.id),
-                'user_id': self.trans_set_so_user_id and self.trans_set_so_user_id.id}
-
-            if cron_available:
-                vals.update({'name': cron_available.name})
-                cron_available.write(vals)
-            else:
-                try:
-                    set_so_trans_cron = self.env.ref('daraz_connector.ir_cron_set_so_transaction')
-                except:
-                    set_so_trans_cron = False
-                if not set_so_trans_cron:
-                    raise Warning(
-                        'Please upgrade Daraz Connector module.')
-
-                name = self.name + ' : ' + set_so_trans_cron.name
-                vals.update({'name': name})
-                new_cron = set_so_trans_cron.copy(default=vals)
-                set_so_trans_cron = self.env['ir.model.data'].create({'module': 'daraz_connector',
-                                                                   'name': 'ir_cron_set_so_transaction_%d' % (self.id),
-                                                                   'model': 'ir.cron',
-                                                                   'res_id': new_cron.id,
-                                                                   'noupdate': True
-                                                                   })
-                set_so_trans_cron and self.update({'trans_set_so_cron_id': new_cron.id})
-        else:
-            try:
-                cron_available = self.env.ref('daraz_connector.ir_cron_set_so_transaction_%d' % (self.id))
-            except:
-                cron_available = False
-
-            if cron_available:
-                cron_available.write({'active': False})
-        return True
-
-    def setup_crea_inv_trnsd_cron(self):
-        if self.trans_create_invoice:
-            try:
-                cron_available = self.env.ref('daraz_connector.ir_cron_cre_inv_transaction_%d' % (self.id),
-                                              raise_if_not_found=False)
-            except:
-                cron_available = False
-            nextcall = datetime.now()
-            nextcall += _intervalTypes[self.trans_create_invoice_interval_type](self.trans_create_invoice_interval_number)
-            vals = {
-                'active': True,
-                'interval_number': self.trans_create_invoice_interval_number,
-                'interval_type': self.trans_create_invoice_interval_type,
-                'nextcall': nextcall.strftime('%Y-%m-%d %H:%M:%S'),
-                'code': "model.auto_cre_inv_transaction(ctx={'instance_id':%d})" % (self.id),
-                'user_id': self.trans_create_invoice_user_id and self.trans_create_invoice_user_id.id}
-
-            if cron_available:
-                vals.update({'name': cron_available.name})
-                cron_available.write(vals)
-            else:
-                try:
-                    crt_inv_trans_cron = self.env.ref('daraz_connector.ir_cron_cre_inv_transaction')
-                except:
-                    crt_inv_trans_cron = False
-                if not crt_inv_trans_cron:
-                    raise Warning(
-                        'Please upgrade Daraz Connector module.')
-
-                name = self.name + ' : ' + crt_inv_trans_cron.name
-                vals.update({'name': name})
-                new_cron = crt_inv_trans_cron.copy(default=vals)
-                crt_inv_trans_cron = self.env['ir.model.data'].create({'module': 'daraz_connector',
-                                                                   'name': 'ir_cron_cre_inv_transaction_%d' % (self.id),
-                                                                   'model': 'ir.cron',
-                                                                   'res_id': new_cron.id,
-                                                                   'noupdate': True
-                                                                   })
-                crt_inv_trans_cron and self.update({'trans_create_invoice_cron_id': new_cron.id})
-        else:
-            try:
-                cron_available = self.env.ref('daraz_connector.ir_cron_cre_inv_transaction_%d' % (self.id))
-            except:
-                cron_available = False
-
-            if cron_available:
-                cron_available.write({'active': False})
-        return True
 
     def setup_import_so_cron(self):
         if self.so_auto_import:
@@ -660,11 +465,8 @@ class DarazConnector(models.Model):
             'Connection': "keep-alive",
             'cache-control': "no-cache"
         }
-
         try:
             response = requests.request(method, url, headers=headers, params=parameters)
-            print(response)
-
         except Exception as e:
             raise Warning(_(response.text))
 
@@ -673,5 +475,4 @@ class DarazConnector(models.Model):
             self.env.cr.commit()
             raise Warning(
                 _("Successfully Connected"))
-
         return response.text

@@ -7,5 +7,3 @@ from . import res_partner
 from . import product
 from . import process_job
 from . import attribute
-from . import transaction_detail
-from . import invoice
